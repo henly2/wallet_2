@@ -9,12 +9,12 @@ import (
 	"encoding/json"
 )
 
-const ServerNodeName = "n1"
-type ServerNodeInstance struct{
+const ServiceNodeName = "n1"
+type ServiceNodeInstance struct{
 	name string
 }
 
-func (ni *ServerNodeInstance)HandleCall(req *string, res *string) error {
+func (ni *ServiceNodeInstance)HandleCall(req *string, res *string) error {
 	fmt.Println("I got..." , *req)
 
 	*res = "i am node";
@@ -34,14 +34,14 @@ func main() {
 			fmt.Println("I do quit")
 			break;
 		}else if input == "register" {
-			node := new(method.ServerNode)
-			node.Instance = &ServerNodeInstance{name:ServerNodeName}
+			node := new(method.ServiceNode)
+			node.Instance = &ServiceNodeInstance{name: ServiceNodeName}
 			rpc.Register(node)
 
 			go jrpc.StartJRPCTcpServer(":8090");
 
-			var registerData common.ModuleRegisterData
-			registerData.Name = ServerNodeName;
+			var registerData common.ServiceCenterRegisterData
+			registerData.Name = ServiceNodeName;
 			registerData.Addr = "127.0.0.1:8090"
 			b,err := json.Marshal(registerData);
 			if err != nil {
@@ -50,7 +50,7 @@ func main() {
 			}
 			params = string(b[:])
 			fmt.Println("params: ", params)
-			go jrpc.CallJRPCToTcpServer("127.0.0.1:8081", common.MethodServerCenterRegister, params, &req)
+			go jrpc.CallJRPCToTcpServer("127.0.0.1:8081", common.MethodServiceCenterRegister, params, &req)
 		}
 	}
 }

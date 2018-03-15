@@ -6,54 +6,54 @@ import(
 )
 
 // 服务中心
-type ServerCenterInterface interface {
+type ServiceCenterInterface interface {
 	HandleRegister(*string, *string)error
 	HandleDispatch(*string, *string)error
 }
 
-type ServerCenter struct{
-	Instance ServerCenterInterface
+type ServiceCenter struct{
+	Instance ServiceCenterInterface
 }
 
 // 服务节点
-type ServerNodeInterface interface {
+type ServiceNodeInterface interface {
 	HandleCall(*string, *string)error
 }
 
-type ServerNode struct{
-	Instance ServerNodeInterface
+type ServiceNode struct{
+	Instance ServiceNodeInterface
 }
 
 // 服务中心方法
-func (c *ServerCenter) Register(req *string, res * string) error {
-	log.Println("ServerCenter register: ", *req)
+func (c *ServiceCenter) Register(req *string, res * string) error {
+	log.Println("ServiceCenter register: ", *req)
 
 	if c.Instance == nil {
-		log.Println("ServerCenter interface is nil")
-		return errors.New("ServerCenter interface is nil")
+		log.Println("ServiceCenter interface is nil")
+		return errors.New("ServiceCenter interface is nil")
 	}
 	c.Instance.HandleRegister(req, res)
 	return nil;
 }
 
-func (c *ServerCenter) Dispatch(req *string, res * string) error {
-	log.Println("ServerCenter dispath : ", *req)
+func (c *ServiceCenter) Dispatch(req *string, res * string) error {
+	log.Println("ServiceCenter dispatch : ", *req)
 
 	if c.Instance == nil {
-		log.Println("ServerCenter interface is nil")
-		return errors.New("ServerCenter interface is nil")
+		log.Println("ServiceCenter interface is nil")
+		return errors.New("ServiceCenter interface is nil")
 	}
 	c.Instance.HandleDispatch(req, res)
 	return nil;
 }
 
 // 服务节点方法
-func (n *ServerNode) Call(req *string, res * string) error {
-	log.Println("ServerNode call: ", *req)
+func (n *ServiceNode) Call(req *string, res * string) error {
+	log.Println("ServiceNode call: ", *req)
 
 	if n.Instance == nil {
-		log.Println("ServerNode interface is nil")
-		return errors.New("ServerNode interface is nil")
+		log.Println("ServiceNode interface is nil")
+		return errors.New("ServiceNode interface is nil")
 	}
 	n.Instance.HandleCall(req, res)
 	return nil;

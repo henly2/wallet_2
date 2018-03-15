@@ -20,7 +20,7 @@ func main() {
 			fmt.Println("I do quit")
 			break;
 		}else if input == "d1" {
-			dispatchData := common.ModuleDispatchData{}
+			dispatchData := common.ServiceCenterDispatchData{}
 			dispatchData.Name = "n1"
 			dispatchData.Params = "[{\"A\":1, \"B\":2}]"
 			b,err := json.Marshal(dispatchData);
@@ -29,10 +29,15 @@ func main() {
 				continue;
 			}
 			params = string(b[:])
-			jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.MethodServerCenterDispatch, params, &req)
+			jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.MethodServiceCenterDispatch, params, &req)
 		}else if input == "d2" {
 			params = "[{\"A\":1, \"\":2}]"
-			jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServerNodeCall, params, &req)
+			jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServiceNodeCall, params, &req)
+		}else if input == "d3" {
+			for i := 0; i < 1000; i++ {
+				params = "[{\"A\":1, \"\":2}]"
+				jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServiceNodeCall, params, &req)
+			}
 		}
 	}
 }
