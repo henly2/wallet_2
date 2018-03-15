@@ -5,6 +5,7 @@ import (
 	"../base/jrpc"
 	"../base/common"
 	"../base/method"
+	"../business_center"
 	"fmt"
 	"encoding/json"
 )
@@ -17,8 +18,7 @@ type ServiceNodeInstance struct{
 func (ni *ServiceNodeInstance)HandleCall(req *string, res *string) error {
 	fmt.Println("I got..." , *req)
 
-	*res = "i am node";
-	return nil;
+	return business.HandleMsg(req, res)
 }
 
 func main() {

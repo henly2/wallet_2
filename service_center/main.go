@@ -13,14 +13,14 @@ import (
 	"sync"
 )
 
-type ModuleNode struct{
+type ServiceNodeInfo struct{
 	name string
 	addr string
 	client *rpc.Client
 }
 
 type ModuleBusiness struct{
-	nodes []ModuleNode
+	nodes []ServiceNodeInfo
 }
 
 const ServiceCenterName = "root"
@@ -76,7 +76,7 @@ func (mi *ServiceCenterInstance)HandleRegister(req *string, res *string) error {
 	}
 
 	business := mi.CreateAndGetModuleBusinessByName(RegisterData.Name)
-	business.nodes = append(business.nodes, ModuleNode{name:RegisterData.Name, addr:RegisterData.Addr, client:client})
+	business.nodes = append(business.nodes, ServiceNodeInfo{name:RegisterData.Name, addr:RegisterData.Addr, client:client})
 
 	fmt.Println("nodes = ", len(business.nodes))
 	return nil
