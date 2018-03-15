@@ -14,13 +14,12 @@ import (
 )
 
 type ServiceNodeInfo struct{
-	name string
-	addr string
+	registerData common.ServiceCenterRegisterData
 	client *rpc.Client
 }
 
 type ModuleBusiness struct{
-	nodes []ServiceNodeInfo
+	nodes []*ServiceNodeInfo
 }
 
 const ServiceCenterName = "root"
@@ -28,62 +27,80 @@ type ServiceCenterInstance struct{
 	name string
 
 	mu sync.Mutex
+	apiBusinessMap map[string]string
 	moduleBusinessMap map[string]*ModuleBusiness
 }
 
 func (mi *ServiceCenterInstance)Init() error {
+	mi.apiBusinessMap = make(map[string]string)
 	mi.moduleBusinessMap = make(map[string]*ModuleBusiness)
 
 	return nil
 }
 
-func (mi *ServiceCenterInstance)CreateAndGetModuleBusinessByName(name string) *ModuleBusiness{
-	var business *ModuleBusiness
-	mi.mu.Lock()
-	defer mi.mu.Unlock()
-
-	business = mi.moduleBusinessMap[name]
-	if business == nil {
-		business = new(ModuleBusiness)
-		mi.moduleBusinessMap[name] = business;
+func (mi *ServiceCenterInstance)RegisterModuleBusiness(registerData *common.ServiceCenterRegisterData) error{
+	client, err := rpc.Dial("tcp", registerData.Addr)
+	if err != nil {
+		log.Println("Error: ", err.Error())
+		return err
 	}
 
-	return business
-}
-
-func (mi *ServiceCenterInstance)GetModuleBusinessByName(name string) *ModuleBusiness{
 	mi.mu.Lock()
 	defer mi.mu.Unlock()
 
-	return mi.moduleBusinessMap[name]
+	business := mi.moduleBusinessMap[registerData.Name]
+	if business == nil {
+		business = new(ModuleBusiness)
+		mi.moduleBusinessMap[registerData.Name] = business;
+	}
+
+	for i := 0; i < len(registerData.Apis); i++ {
+		mi.apiBusinessMap[registerData.Apis[i]] = registerData.Name;
+	}
+
+	business.nodes = append(business.nodes, &ServiceNodeInfo{registerData:*registerData, client:client})
+
+	fmt.Println("nodes = ", len(business.nodes))
+	return nil
+}
+
+func (mi *ServiceCenterInstance)GetServiceNodeInfoByApi(api string) *ServiceNodeInfo{
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
+
+	name := mi.apiBusinessMap[api]
+	if name == ""{
+		return nil
+	}
+
+	moduleBusiness := mi.moduleBusinessMap[name]
+	if moduleBusiness == nil || len(moduleBusiness.nodes) == 0 {
+		return nil
+	}
+
+	// first we return index 0
+	return moduleBusiness.nodes[0]
 }
 
 /////////////////////////////////////////////////////////////////////
 func (mi *ServiceCenterInstance)HandleRegister(req *string, res *string) error {
 
-	RegisterData := &common.ServiceCenterRegisterData{}
+	RegisterData := common.ServiceCenterRegisterData{}
 	err := json.Unmarshal([]byte(*req), &RegisterData);
 	if err != nil {
 		fmt.Println("Error: ", err.Error())
 		return err;
 	}
 
-	fmt.Println("A module register in...", mi.name, "--", RegisterData.Name)
-	client, err := rpc.Dial("tcp", RegisterData.Addr)
+	err = mi.RegisterModuleBusiness(&RegisterData)
 	if err != nil {
 		log.Println("Error: ", err.Error())
 		return err
 	}
 
-	business := mi.CreateAndGetModuleBusinessByName(RegisterData.Name)
-	business.nodes = append(business.nodes, ServiceNodeInfo{name:RegisterData.Name, addr:RegisterData.Addr, client:client})
-
-	fmt.Println("nodes = ", len(business.nodes))
 	return nil
 }
 func (mi *ServiceCenterInstance)HandleDispatch(req *string, res *string) error {
-
-	fmt.Println("A module dispatch in callback2...", mi.name)
 	//jrpc.CallJRPCToTcpServer("127.0.0.1:8081", common.Method_Module_Call, *req, res);
 	//jrpc.CallJRPCToTcpServer("192.168.43.123:8081", "Module.Do", *req, res);
 	dispatchData := &common.ServiceCenterDispatchData{}
@@ -93,17 +110,14 @@ func (mi *ServiceCenterInstance)HandleDispatch(req *string, res *string) error {
 		return err;
 	}
 
-	fmt.Println("A module dispatch in...", dispatchData.Name)
-	business := mi.GetModuleBusinessByName(dispatchData.Name)
-	if business==nil || len(business.nodes) == 0{
-		fmt.Println("Error: no module")
-		return errors.New("no module")
+	fmt.Println("A module dispatch in...", *req)
+	nodeInfo := mi.GetServiceNodeInfoByApi(dispatchData.Api)
+	if nodeInfo == nil {
+		fmt.Println("Error: no find api")
+		return errors.New("no find api")
 	}
 
-	fmt.Println("A module dispatch in callback1")
-
-	node := business.nodes[0]
-	jrpc.CallJRPCToTcpServerOnClient(node.client, common.MethodServiceNodeCall, dispatchData.Params, res)
+	jrpc.CallJRPCToTcpServerOnClient(nodeInfo.client, common.MethodServiceNodeCall, dispatchData, res)
 
 	fmt.Println("A module dispatch in callback")
 	return nil

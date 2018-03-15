@@ -3,6 +3,7 @@ package method
 import(
 	"log"
 	"errors"
+	"../common"
 )
 
 // 服务中心
@@ -17,7 +18,7 @@ type ServiceCenter struct{
 
 // 服务节点
 type ServiceNodeInterface interface {
-	HandleCall(*string, *string)error
+	HandleCall(*common.ServiceCenterDispatchData, *string)error
 }
 
 type ServiceNode struct{
@@ -48,7 +49,7 @@ func (c *ServiceCenter) Dispatch(req *string, res * string) error {
 }
 
 // 服务节点方法
-func (n *ServiceNode) Call(req *string, res * string) error {
+func (n *ServiceNode) Call(req *common.ServiceCenterDispatchData, res * string) error {
 	log.Println("ServiceNode call: ", *req)
 
 	if n.Instance == nil {

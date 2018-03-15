@@ -5,20 +5,33 @@ import (
 	"../base/jrpc"
 	"../base/common"
 	"../base/method"
-	"../business_center"
+	//"../business_center"
 	"fmt"
 	"encoding/json"
 )
 
-const ServiceNodeName = "n1"
+const ServiceNodeName = "service"
+var ServiceNodeApis = []string{
+	"getaddress",
+	"querysomething",
+}
 type ServiceNodeInstance struct{
 	name string
+	// add customer ...
 }
 
-func (ni *ServiceNodeInstance)HandleCall(req *string, res *string) error {
-	fmt.Println("I got..." , *req)
+func (ni *ServiceNodeInstance)HandleCall(req *common.ServiceCenterDispatchData, res *string) error {
+	fmt.Println("I got...api=" , req.Api, "...params=", req.Params)
 
-	return business.HandleMsg(req, res)
+	*res = "no"
+	for i := 0; i < len(ServiceNodeApis); i++ {
+		if ServiceNodeApis[i] == req.Api {
+			*res = "ok"
+			break
+		}
+	}
+	//return business.HandleMsg(req, res)
+	return nil;
 }
 
 func main() {
@@ -35,14 +48,16 @@ func main() {
 			break;
 		}else if input == "register" {
 			node := new(method.ServiceNode)
-			node.Instance = &ServiceNodeInstance{name: ServiceNodeName}
+			nodeInstance := &ServiceNodeInstance{name: ServiceNodeName}
+			node.Instance = nodeInstance
 			rpc.Register(node)
 
-			go jrpc.StartJRPCTcpServer(":8090");
+			go jrpc.StartJRPCTcpServer(":8090")
 
 			var registerData common.ServiceCenterRegisterData
-			registerData.Name = ServiceNodeName;
+			registerData.Name = ServiceNodeName
 			registerData.Addr = "127.0.0.1:8090"
+			registerData.Apis = ServiceNodeApis
 			b,err := json.Marshal(registerData);
 			if err != nil {
 				fmt.Println("Error: ", err.Error())
