@@ -5,45 +5,56 @@ import(
 	"errors"
 )
 
-type ModuleInterface interface {
+// 服务中心
+type ServerCenterInterface interface {
 	HandleRegister(*string, *string)error
 	HandleDispatch(*string, *string)error
+}
+
+type ServerCenter struct{
+	Instance ServerCenterInterface
+}
+
+// 服务节点
+type ServerNodeInterface interface {
 	HandleCall(*string, *string)error
 }
 
-type Module struct{
-	Instance ModuleInterface
+type ServerNode struct{
+	Instance ServerNodeInterface
 }
 
-func (m *Module) Register(req *string, res * string) error {
-	log.Println("Module register: ", *req)
+// 服务中心方法
+func (c *ServerCenter) Register(req *string, res * string) error {
+	log.Println("ServerCenter register: ", *req)
 
-	if m.Instance == nil {
-		log.Println("Module interface is nil")
-		return errors.New("Module interface is nil")
+	if c.Instance == nil {
+		log.Println("ServerCenter interface is nil")
+		return errors.New("ServerCenter interface is nil")
 	}
-	m.Instance.HandleRegister(req, res)
+	c.Instance.HandleRegister(req, res)
 	return nil;
 }
 
-func (m *Module) Dispatch(req *string, res * string) error {
-	log.Println("Module dispath : ", *req)
+func (c *ServerCenter) Dispatch(req *string, res * string) error {
+	log.Println("ServerCenter dispath : ", *req)
 
-	if m.Instance == nil {
-		log.Println("Module interface is nil")
-		return errors.New("Module interface is nil")
+	if c.Instance == nil {
+		log.Println("ServerCenter interface is nil")
+		return errors.New("ServerCenter interface is nil")
 	}
-	m.Instance.HandleDispatch(req, res)
+	c.Instance.HandleDispatch(req, res)
 	return nil;
 }
 
-func (m *Module) Call(req *string, res * string) error {
-	log.Println("Module call : ", *req)
+// 服务节点方法
+func (n *ServerNode) Call(req *string, res * string) error {
+	log.Println("ServerNode call: ", *req)
 
-	if m.Instance == nil {
-		log.Println("Module interface is nil")
-		return errors.New("Module interface is nil")
+	if n.Instance == nil {
+		log.Println("ServerNode interface is nil")
+		return errors.New("ServerNode interface is nil")
 	}
-	m.Instance.HandleCall(req, res)
+	n.Instance.HandleCall(req, res)
 	return nil;
 }

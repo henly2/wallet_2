@@ -19,31 +19,20 @@ func main() {
 		if input == "quit" {
 			fmt.Println("I do quit")
 			break;
-		}else if input == "http" {
-			go jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.Method_Module_Dispatch, params, &req)
-		}else if input == "dispatch" {
-			var mdata common.ModuleDispatchData
-			mdata.Name = "m1";
-			b,err := json.Marshal(mdata);
+		}else if input == "d1" {
+			dispatchData := common.ModuleDispatchData{}
+			dispatchData.Name = "n1"
+			dispatchData.Params = "[{\"A\":1, \"B\":2}]"
+			b,err := json.Marshal(dispatchData);
 			if err != nil {
 				fmt.Println("Error: ", err.Error())
 				continue;
 			}
 			params = string(b[:])
-			fmt.Println("params: ", params)
-			go jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.Method_Module_Dispatch, params, &req)
-		}else if input == "dispatch2" {
-			params = "{\"name\":\"m1\", \"params\":\"pp\"}"
-			fmt.Println("params: ", params)
-			go jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.Method_Module_Dispatch, params, &req)
-		}else if input == "dispatch2_1" {
-
-			for i:=0; i<100;i++  {
-				params = "{\"name\":\"m1\", \"params\":\"pp\"}"
-				fmt.Println("params: ", params)
-				go jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.Method_Module_Dispatch, params, &req)
-			}
-
+			jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.MethodServerCenterDispatch, params, &req)
+		}else if input == "d2" {
+			params = "[{\"A\":1, \"\":2}]"
+			jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServerNodeCall, params, &req)
 		}
 	}
 }

@@ -23,20 +23,21 @@ type ModuleBusiness struct{
 	nodes []ModuleNode
 }
 
-type ModuleInstance struct{
+const ServerCenterName = "root"
+type ServerCenterInstance struct{
 	name string
 
 	mu sync.Mutex
 	moduleBusinessMap map[string]*ModuleBusiness
 }
 
-func (mi *ModuleInstance)Init() error {
+func (mi *ServerCenterInstance)Init() error {
 	mi.moduleBusinessMap = make(map[string]*ModuleBusiness)
 
 	return nil
 }
 
-func (mi *ModuleInstance)CreateAndGetModuleBusinessByName(name string) *ModuleBusiness{
+func (mi *ServerCenterInstance)CreateAndGetModuleBusinessByName(name string) *ModuleBusiness{
 	var business *ModuleBusiness
 	mi.mu.Lock()
 	defer mi.mu.Unlock()
@@ -50,7 +51,7 @@ func (mi *ModuleInstance)CreateAndGetModuleBusinessByName(name string) *ModuleBu
 	return business
 }
 
-func (mi *ModuleInstance)GetModuleBusinessByName(name string) *ModuleBusiness{
+func (mi *ServerCenterInstance)GetModuleBusinessByName(name string) *ModuleBusiness{
 	mi.mu.Lock()
 	defer mi.mu.Unlock()
 
@@ -58,43 +59,43 @@ func (mi *ModuleInstance)GetModuleBusinessByName(name string) *ModuleBusiness{
 }
 
 /////////////////////////////////////////////////////////////////////
-func (mi *ModuleInstance)HandleRegister(req *string, res *string) error {
+func (mi *ServerCenterInstance)HandleRegister(req *string, res *string) error {
 
-	mdata := &common.ModuleRegisterData{}
-	err := json.Unmarshal([]byte(*req), &mdata);
+	RegisterData := &common.ModuleRegisterData{}
+	err := json.Unmarshal([]byte(*req), &RegisterData);
 	if err != nil {
 		fmt.Println("Error: ", err.Error())
 		return err;
 	}
 
-	fmt.Println("A module register in...", mi.name, "--", mdata.Name)
-	client, err := rpc.Dial("tcp", mdata.Addr)
+	fmt.Println("A module register in...", mi.name, "--", RegisterData.Name)
+	client, err := rpc.Dial("tcp", RegisterData.Addr)
 	if err != nil {
 		log.Println("Error: ", err.Error())
 		return err
 	}
 
-	business := mi.CreateAndGetModuleBusinessByName(mdata.Name)
-	business.nodes = append(business.nodes, ModuleNode{name:mdata.Name, addr:mdata.Addr, client:client})
+	business := mi.CreateAndGetModuleBusinessByName(RegisterData.Name)
+	business.nodes = append(business.nodes, ModuleNode{name:RegisterData.Name, addr:RegisterData.Addr, client:client})
 
 	fmt.Println("nodes = ", len(business.nodes))
 	return nil
 }
-func (mi *ModuleInstance)HandleDispatch(req *string, res *string) error {
+func (mi *ServerCenterInstance)HandleDispatch(req *string, res *string) error {
 
 	fmt.Println("A module dispatch in callback2...", mi.name)
 	//jrpc.CallJRPCToTcpServer("127.0.0.1:8081", common.Method_Module_Call, *req, res);
 	//jrpc.CallJRPCToTcpServer("192.168.43.123:8081", "Module.Do", *req, res);
-	mdata := &common.ModuleDispatchData{}
-	err := json.Unmarshal([]byte(*req), &mdata);
+	dispatchData := &common.ModuleDispatchData{}
+	err := json.Unmarshal([]byte(*req), &dispatchData);
 	if err != nil {
 		fmt.Println("Error: ", err.Error())
 		return err;
 	}
 
-	fmt.Println("A module dispatch in...", mdata.Name)
-	business := mi.GetModuleBusinessByName(mdata.Name)
-	if len(business.nodes) == 0{
+	fmt.Println("A module dispatch in...", dispatchData.Name)
+	business := mi.GetModuleBusinessByName(dispatchData.Name)
+	if business==nil || len(business.nodes) == 0{
 		fmt.Println("Error: no module")
 		return errors.New("no module")
 	}
@@ -102,28 +103,19 @@ func (mi *ModuleInstance)HandleDispatch(req *string, res *string) error {
 	fmt.Println("A module dispatch in callback1")
 
 	node := business.nodes[0]
-	jrpc.CallJRPCToTcpServerOnClient(node.client, common.Method_Module_Call, *req, res)
+	jrpc.CallJRPCToTcpServerOnClient(node.client, common.MethodServerNodeCall, dispatchData.Params, res)
 
 	fmt.Println("A module dispatch in callback")
 	return nil
 }
 
-func (mi *ModuleInstance)HandleCall(req *string, res *string) error {
-
-	//jrpc.CallJRPCToTcpServer("127.0.0.1:8081", "Module.Do", *req, res);
-	//jrpc.CallJRPCToTcpServer("192.168.43.123:8081", "Module.Do", *req, res);
-	fmt.Println("A module call in")
-	// TODO: calleer
-	return nil
-}
-
 func main() {
-	module := new(method.Module)
+	center := new(method.ServerCenter)
 
-	mi := &ModuleInstance{name:"root"}
-	mi.Init()
-	module.Instance = mi
-	rpc.Register(module)
+	centerInstance := &ServerCenterInstance{name:ServerCenterName}
+	centerInstance.Init()
+	center.Instance = centerInstance
+	rpc.Register(center)
 
 	rpc.HandleHTTP();
 	go jrpc.StartJRPCHttpServer(":8080")

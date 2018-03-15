@@ -1,9 +1,9 @@
 package common
 
 const(
-	Method_Module_Register = "Module.Register"
-	Method_Module_Dispatch = "Module.Dispatch"
-	Method_Module_Call = "Module.Call"
+	MethodServerCenterRegister = "ServerCenter.Register"
+	MethodServerCenterDispatch = "ServerCenter.Dispatch"
+	MethodServerNodeCall       = "ServerNode.Call"
 )
 
 type ModuleRegisterData struct {
@@ -13,4 +13,5 @@ type ModuleRegisterData struct {
 
 type ModuleDispatchData struct{
 	Name string `json:"name"`
+	Params string `json:"params"`
 }
