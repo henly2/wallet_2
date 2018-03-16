@@ -48,6 +48,17 @@ func (c *ServiceCenter) Dispatch(req *string, res * string) error {
 	return nil;
 }
 
+func (c *ServiceCenter) Pingpong(req *string, res * string) error {
+	log.Println("ServiceCenter pingpong : ", *req)
+
+	if c.Instance == nil {
+		log.Println("ServiceCenter interface is nil")
+		return errors.New("ServiceCenter interface is nil")
+	}
+	*res = "pong"
+	return nil;
+}
+
 // 服务节点方法
 func (n *ServiceNode) Call(req *common.ServiceCenterDispatchData, res * string) error {
 	log.Println("ServiceNode call: ", *req)

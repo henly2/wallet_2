@@ -9,16 +9,17 @@ import (
 	"net/rpc"
 	"log"
 	"time"
+	"strconv"
 )
 
 var timeBegin,timeEnd time.Time
 
-func DoTest(params string, count *int64, right *int64, times int64){
+func DoTest(params interface{}, str *string, count *int64, right *int64, times int64){
 	var res string
 	err := jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.MethodServiceCenterDispatch, params, &res)
 
 	atomic.AddInt64(count, 1)
-	if  err == nil && res == "ok"{
+	if  err == nil && res == *str{
 		atomic.AddInt64(right, 1)
 	}
 
@@ -28,13 +29,28 @@ func DoTest(params string, count *int64, right *int64, times int64){
 	}
 }
 
-func DoTestTcp(params string, count *int64, right *int64, times int64){
+func DoTest2(client *rpc.Client, params interface{}, str *string, count *int64, right *int64, times int64){
+	var res string
+	err := jrpc.CallJRPCToHttpServer2OnClient(client, common.MethodServiceCenterDispatch, params, &res)
+
+	atomic.AddInt64(count, 1)
+	if  err == nil && res == *str{
+		atomic.AddInt64(right, 1)
+	}
+
+	if atomic.CompareAndSwapInt64(count, times, times) {
+		cost := time.Now().Sub(timeBegin)
+		fmt.Println("finish...", *count, "...right...", *right, "...cost...", cost)
+	}
+}
+
+func DoTestTcp(params interface{}, str *string, count *int64, right *int64, times int64){
 	var res string
 
 	err := jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServiceNodeCall, params, &res)
 
 	atomic.AddInt64(count, 1)
-	if  err == nil && res == "ok"{
+	if  err == nil && res == *str{
 		atomic.AddInt64(right, 1)
 	}
 
@@ -44,13 +60,13 @@ func DoTestTcp(params string, count *int64, right *int64, times int64){
 	}
 }
 
-func DoTestTcp2(client *rpc.Client, params string, count *int64, right *int64, times int64){
+func DoTestTcp2(client *rpc.Client, params interface{}, str *string, count *int64, right *int64, times int64){
 	var res string
 
 	err := jrpc.CallJRPCToTcpServerOnClient(client, common.MethodServiceNodeCall, params, &res)
 
 	atomic.AddInt64(count, 1)
-	if  err == nil && res == "ok"{
+	if  err == nil && res == *str{
 		atomic.AddInt64(right, 1)
 	}
 
@@ -69,9 +85,15 @@ func main() {
 	count = 0
 	right = 0
 
+	var testdata string
+	for i := 0; i < 1000; i++ {
+		testdata += strconv.Itoa(i)
+	}
+	testdata = "hello"
+
 	dispatchData := common.ServiceCenterDispatchData{}
-	dispatchData.Api = "getaddress2"
-	dispatchData.Params = "{\"A\":1, \"B\":2}"
+	dispatchData.Api = "MyFunc1.Add"
+	dispatchData.Params = "{\"A\":2, \"B\":2}"
 	b,err := json.Marshal(dispatchData);
 	if err != nil {
 		fmt.Println("Error: ", err.Error())
@@ -80,14 +102,14 @@ func main() {
 	params = string(b[:])
 
 	for ; ;  {
-		count = 0
-		right = 0
-
 		fmt.Println("Please input command: ")
 		var input string
 		fmt.Scanln(&input)
 
-		timeBegin = time.Now()
+		fmt.Println("Execute input command: ")
+		count = 0
+		right = 0
+		timeBegin = time.Now();
 
 		if input == "quit" {
 			fmt.Println("I do quit")
@@ -98,7 +120,7 @@ func main() {
 			go jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServiceNodeCall, dispatchData, &res)
 		}else if input == "d3" {
 			for i := 0; i < times; i++ {
-				go DoTestTcp(params, &count, &right, times)
+				go DoTestTcp(dispatchData, &testdata, &count, &right, times)
 			}
 		} else if input == "d33" {
 
@@ -109,11 +131,28 @@ func main() {
 			}
 
 			for i := 0; i < times; i++ {
-				go DoTestTcp2(client, params, &count, &right, times)
+				go DoTestTcp2(client, dispatchData, &testdata, &count, &right, times)
 			}
 		}else if input == "d4" {
 			for i := 0; i < times; i++ {
-				go DoTest(params, &count, &right, times)
+				go DoTest(params, &testdata, &count, &right, times)
+			}
+		} else if input == "d44" {
+
+			addr := "127.0.0.1:8080"
+			log.Println("Call JRPC to Http server...", addr)
+
+			realpath := ""
+			if  realpath == ""{
+				realpath = rpc.DefaultRPCPath
+			}
+			client, err := rpc.DialHTTPPath("tcp", addr, realpath)
+			if err != nil {
+				log.Println("Error: ", err.Error())
+				continue
+			}
+			for i := 0; i < times; i++ {
+				go DoTest2(client, params, &testdata, &count, &right, times)
 			}
 		}
 	}

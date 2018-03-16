@@ -13,7 +13,7 @@ import (
 // @parameter: params string
 // @parameter: res *string
 // @return: error
-func CallJRPCToHttpServer2(addr string, path string, method string, params string, res *string) error {
+func CallJRPCToHttpServer2(addr string, path string, method string, params interface{}, res *string) error {
 	log.Println("Call JRPC to Http server...", addr)
 
 	realpath := path
@@ -38,6 +38,20 @@ func CallJRPCToHttpServer2(addr string, path string, method string, params strin
 	return nil
 }
 
+func CallJRPCToHttpServer2OnClient(client *rpc.Client, method string, params interface{}, res *string) error {
+	log.Println("Call JRPC to Http server...")
+
+	err := client.Call(method, params, res)
+	if err != nil {
+		log.Println("Error: ", err.Error())
+		return err
+	}
+
+	fmt.Println("Params: ", params)
+	fmt.Println("Reply: ", *res)
+	return nil
+}
+
 // FIXME: xxxx
 // Call a JRPC to Http server3
 // @parameter: addr string, like "127.0.0.1:8080"
@@ -45,7 +59,7 @@ func CallJRPCToHttpServer2(addr string, path string, method string, params strin
 // @parameter: params string
 // @parameter: res *string
 // @return: error
-func CallJRPCToHttpServer3(addr string, method string, params string, res *string) error {
+func CallJRPCToHttpServer3(addr string, method string, params interface{}, res *string) error {
 	log.Println("Call JRPC to Http server...", addr)
 
 	addr2, err := net.ResolveTCPAddr("tcp", addr)

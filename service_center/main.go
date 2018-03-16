@@ -15,18 +15,20 @@ import (
 
 type ServiceNodeInfo struct{
 	registerData common.ServiceCenterRegisterData
+
+	rwmu sync.RWMutex
 	client *rpc.Client
 }
 
 type ModuleBusiness struct{
-	nodes []*ServiceNodeInfo
+	nodes map[string]*ServiceNodeInfo
 }
 
 const ServiceCenterName = "root"
 type ServiceCenterInstance struct{
 	name string
 
-	mu sync.Mutex
+	mu sync.RWMutex
 	apiBusinessMap map[string]string
 	moduleBusinessMap map[string]*ModuleBusiness
 }
@@ -38,13 +40,7 @@ func (mi *ServiceCenterInstance)Init() error {
 	return nil
 }
 
-func (mi *ServiceCenterInstance)RegisterModuleBusiness(registerData *common.ServiceCenterRegisterData) error{
-	client, err := rpc.Dial("tcp", registerData.Addr)
-	if err != nil {
-		log.Println("Error: ", err.Error())
-		return err
-	}
-
+func (mi *ServiceCenterInstance)RegisterServiceNodeInfo(registerData *common.ServiceCenterRegisterData) error{
 	mi.mu.Lock()
 	defer mi.mu.Unlock()
 
@@ -58,28 +54,87 @@ func (mi *ServiceCenterInstance)RegisterModuleBusiness(registerData *common.Serv
 		mi.apiBusinessMap[registerData.Apis[i]] = registerData.Name;
 	}
 
-	business.nodes = append(business.nodes, &ServiceNodeInfo{registerData:*registerData, client:client})
+	if business.nodes == nil {
+		business.nodes = make(map[string]*ServiceNodeInfo)
+	}
+
+	if business.nodes[registerData.Addr] == nil {
+		business.nodes[registerData.Addr] = &ServiceNodeInfo{registerData:*registerData, client:nil};
+	}
 
 	fmt.Println("nodes = ", len(business.nodes))
 	return nil
 }
 
 func (mi *ServiceCenterInstance)GetServiceNodeInfoByApi(api string) *ServiceNodeInfo{
-	mi.mu.Lock()
-	defer mi.mu.Unlock()
+	mi.mu.RLock()
+	defer mi.mu.RUnlock()
 
 	name := mi.apiBusinessMap[api]
 	if name == ""{
 		return nil
 	}
 
-	moduleBusiness := mi.moduleBusinessMap[name]
-	if moduleBusiness == nil || len(moduleBusiness.nodes) == 0 {
+	business := mi.moduleBusinessMap[name]
+	if business == nil || business.nodes == nil{
 		return nil
 	}
 
+	var nodeInfo *ServiceNodeInfo
+	nodeInfo = nil
+	for _, v := range business.nodes{
+		nodeInfo = v
+		break
+	}
+
 	// first we return index 0
-	return moduleBusiness.nodes[0]
+	return nodeInfo
+}
+
+func (mi *ServiceCenterInstance)RemoveServiceNodeInfo(nodeInfo *ServiceNodeInfo) error{
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
+
+	business := mi.moduleBusinessMap[nodeInfo.registerData.Name]
+	if business == nil || business.nodes == nil{
+		return nil
+	}
+
+	delete(business.nodes, nodeInfo.registerData.Addr)
+
+	fmt.Println("nodes = ", len(business.nodes))
+	return nil
+}
+
+func (mi *ServiceCenterInstance)OpenClient(nodeInfo *ServiceNodeInfo) error{
+	nodeInfo.rwmu.Lock()
+	defer nodeInfo.rwmu.Unlock()
+
+	if nodeInfo.client == nil{
+		client, err := rpc.Dial("tcp", nodeInfo.registerData.Addr)
+		if err != nil {
+			log.Println("Error Open client: ", err.Error())
+			return err
+		}
+
+		nodeInfo.client = client
+	}
+
+	return nil
+}
+
+func (mi *ServiceCenterInstance)CloseClient(nodeInfo *ServiceNodeInfo) error{
+	nodeInfo.rwmu.Lock()
+	defer nodeInfo.rwmu.Unlock()
+
+	if nodeInfo.client != nil{
+		nodeInfo.client.Close()
+		nodeInfo.client = nil
+	}
+
+	//mi.RemoveServiceNodeInfo(nodeInfo)
+
+	return nil
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -92,7 +147,7 @@ func (mi *ServiceCenterInstance)HandleRegister(req *string, res *string) error {
 		return err;
 	}
 
-	err = mi.RegisterModuleBusiness(&RegisterData)
+	err = mi.RegisterServiceNodeInfo(&RegisterData)
 	if err != nil {
 		log.Println("Error: ", err.Error())
 		return err
@@ -117,10 +172,28 @@ func (mi *ServiceCenterInstance)HandleDispatch(req *string, res *string) error {
 		return errors.New("no find api")
 	}
 
-	jrpc.CallJRPCToTcpServerOnClient(nodeInfo.client, common.MethodServiceNodeCall, dispatchData, res)
+	if nodeInfo.client == nil {
+		mi.OpenClient(nodeInfo)
+	}
+
+	err = func() error {
+		if nodeInfo.client != nil {
+			nodeInfo.rwmu.RLock()
+			defer nodeInfo.rwmu.RUnlock()
+			return jrpc.CallJRPCToTcpServerOnClient(nodeInfo.client, common.MethodServiceNodeCall, dispatchData, res)
+		}
+		return nil
+	}()
+
+	if err != nil {
+		fmt.Println("Call service api failed close client, ", err.Error())
+
+		mi.CloseClient(nodeInfo)
+		return err;
+	}
 
 	fmt.Println("A module dispatch in callback")
-	return nil
+	return err
 }
 
 func main() {
