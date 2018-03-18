@@ -13,9 +13,9 @@ const(
 
 // 注册信息
 type ServiceCenterRegisterData struct {
-	Name string `json:"name"`		// service name
-	Addr string `json:"addr"`		// service ip address
-	Apis []string `json:"apis""`  	// service apis
+	Name string `json:"name"`			// service node name
+	Addr string `json:"addr"`			// service node ip address
+	Apis []string `json:"apis""`  		// service node apis
 }
 
 // 注册API

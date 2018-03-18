@@ -196,6 +196,29 @@ func (mi *ServiceCenterInstance)HandleDispatch(req *string, res *string) error {
 	return err
 }
 
+func StartServiceCenter(){
+	l, err := jrpc.CreateTcpServer(":8081")
+	if err != nil {
+		fmt.Println("Error: Create tcp server, ", err.Error())
+		return
+	}
+
+	go func(){
+		for{
+			conn, err := l.Accept();
+			if err != nil {
+				log.Println("Error: ", err.Error())
+				continue
+			}
+
+			log.Println("JRPC Tcp server Accept a client: ", conn.RemoteAddr())
+			go rpc.ServeConn(conn)
+		}
+	}()
+
+	fmt.Println("i am graceful quit StartServiceCenter")
+}
+
 func main() {
 	center := new(method.ServiceCenter)
 
@@ -207,7 +230,7 @@ func main() {
 	rpc.HandleHTTP();
 	go jrpc.StartJRPCHttpServer(":8080")
 
-	go jrpc.StartJRPCTcpServer(":8081")
+	go StartServiceCenter()
 
 	//go jrpc.StartJRPCHttpServer2(":8080")
 	//newServer := rpc.NewServer();
