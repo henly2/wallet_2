@@ -62,7 +62,7 @@ func StartCenter(ctx context.Context, serviceCenter *ServiceCenter) {
 
 // RPC 方法
 // 服务中心方法--注册到服务中心
-func (mi *ServiceCenter) Register(req *string, res * string) error {
+func (mi *ServiceCenter) Register(req *string, res *string) error {
 	RegisterData := common.ServiceCenterRegisterData{}
 	err := json.Unmarshal([]byte(*req), &RegisterData);
 	if err != nil {
@@ -80,6 +80,7 @@ func (mi *ServiceCenter) Register(req *string, res * string) error {
 }
 
 // 服务中心方法--发送请求到服务中心进行转发
+/*
 func (mi *ServiceCenter) Dispatch(req *string, res * string) error {
 	dispatchData := &common.ServiceCenterDispatchData{}
 	err := json.Unmarshal([]byte(*req), &dispatchData);
@@ -91,8 +92,8 @@ func (mi *ServiceCenter) Dispatch(req *string, res * string) error {
 	fmt.Println("A module dispatch in...", *req)
 	nodeInfo := mi.getServiceNodeInfoByApi(dispatchData.Api)
 	if nodeInfo == nil {
-		fmt.Println("Error: no find api")
-		return errors.New("no find api")
+		fmt.Println("Error: not find api")
+		return errors.New("not find api")
 	}
 
 	if nodeInfo.Client == nil {
@@ -116,6 +117,38 @@ func (mi *ServiceCenter) Dispatch(req *string, res * string) error {
 	}
 
 	fmt.Println("A module dispatch in callback")
+	return err
+}
+*/
+// 测试。。。
+func (mi *ServiceCenter) Dispatch(ask *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData) error {
+	fmt.Println("A module dispatch in api...", ask.Api)
+	nodeInfo := mi.getServiceNodeInfoByApi(ask.Api)
+	if nodeInfo == nil {
+		fmt.Println("Error: not find api")
+		return errors.New("not find api")
+	}
+
+	if nodeInfo.Client == nil {
+		mi.openClient(nodeInfo)
+	}
+
+	err := func() error {
+		if nodeInfo.Client != nil {
+			nodeInfo.Rwmu.RLock()
+			defer nodeInfo.Rwmu.RUnlock()
+			return jrpc.CallJRPCToTcpServerOnClient(nodeInfo.Client, common.MethodServiceNodeCall, ask, ack)
+		}
+		return nil
+	}()
+
+	if err != nil {
+		fmt.Println("Call service api failed close client, ", err.Error())
+
+		mi.closeClient(nodeInfo)
+		return err;
+	}
+
 	return err
 }
 

@@ -5,7 +5,6 @@ import (
 	"../common"
 	"../jrpc"
 	"fmt"
-	"errors"
 	"encoding/json"
 	"context"
 	"strings"
@@ -51,28 +50,20 @@ func StartNode(ctx context.Context, serviceNode *ServiceNode) {
 
 // RPC 方法
 // 服务节点RPC--调用节点方法ServiceNodeInstance.Call
-func (ni *ServiceNode) Call(req *common.ServiceCenterDispatchData, res * string) error {
-	ack := common.ServiceCenterDispatchAckData{}
-	ack.Api = req.Api
+func (ni *ServiceNode) Call(ask *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData) error {
+	ack.Api = ask.Api
+	ack.Id = ask.Id
 	ack.Err = common.ServiceDispatchErrOk
+	ack.ErrMsg = ""
 	if ni.Handler != nil {
-		ni.Handler(req, &ack.Result)
+		ni.Handler(ask, &ack.Ack)
 	}else{
-		fmt.Println("Error api call (no handler)--api=" , req.Api, ",params=", req.Params)
+		fmt.Println("Error api call (no handler)--api=" , ask.Api, ",argv=", ask.Argv)
 
 		ack.Err = common.ServiceDispatchErrNotFindHanlder
-		ack.Errmsg = "Not find handler"
+		ack.ErrMsg = "Not find handler"
 	}
 
-	// to json string
-	b,err := json.Marshal(ack);
-	if err != nil {
-		fmt.Println("Error: ", err.Error())
-		*res = "System error"
-		return errors.New(*res);
-	}
-
-	*res = string(b);
 	return nil
 }
 

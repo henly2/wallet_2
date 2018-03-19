@@ -4,6 +4,7 @@ import (
 	"net/rpc"
 	"../base/service"
 	"../base/common"
+	"./function"
 	//"../business_center"
 	"fmt"
 	"strconv"
@@ -14,20 +15,6 @@ import (
 )
 
 const ServiceNodeName = "service"
-type Args struct {
-	A int
-	B int
-}
-type MyFunc1 int
-type MyFunc2 int
-func (myFunc1 *MyFunc1)Add(args *Args, res *string)  error{
-	*res = strconv.Itoa(args.A + args.B)
-	return nil
-}
-func (myFunc2 *MyFunc2)Sub(args *Args, res *string)  error{
-	*res = strconv.Itoa(args.A - args.B)
-	return nil
-}
 
 // rpcRequest represents a RPC request.
 // rpcRequest implements the io.ReadWriteCloser interface.
@@ -63,7 +50,7 @@ func (r *apiRpcRequest) Call() {
 
 func callNodeApi(req *common.ServiceCenterDispatchData, result *string){
 	// dispatch your func
-	rpcstring := "{\"method\":\"" + req.Api + "\"," + "\"params\":" + req.Params + ",\"id\":"+ strconv.Itoa(req.Id) + "}"
+	rpcstring := "{\"method\":\"" + req.Api + "\"," + "\"params\":" + req.Argv + ",\"id\":"+ strconv.Itoa(req.Id) + "}"
 
 	s := strings.NewReader(rpcstring)
 	br := bufio.NewReader(s)
@@ -78,15 +65,16 @@ func callNodeApi(req *common.ServiceCenterDispatchData, result *string){
 func main() {
 	nodeInstance, _:= service.NewServiceNode(ServiceNodeName)
 	nodeInstance.RegisterData.Addr = "127.0.0.1:8090"
-	nodeInstance.RegisterData.RegisterApi(new(MyFunc1))
-	nodeInstance.RegisterData.RegisterApi(new(MyFunc2))
+	nodeInstance.RegisterData.RegisterApi(new(function.MyFunc1))
+	nodeInstance.RegisterData.RegisterApi(new(function.MyFunc2))
 
 	nodeInstance.ServiceCenterAddr = "127.0.0.1:8081"
 	nodeInstance.Handler = callNodeApi
 
 	rpc.Register(nodeInstance)
 
-	rpc.Register(new(MyFunc1))
+	rpc.Register(new(function.MyFunc1))
+	rpc.Register(new(function.MyFunc2))
 
 	// start routine
 	ctx, cancel := context.WithCancel(context.Background())
