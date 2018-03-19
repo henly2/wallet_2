@@ -33,10 +33,11 @@ func (rd *ServiceCenterRegisterData)RegisterApi(api interface{})  {
 }
 
 // 请求信息
-// json like: {"api":"Arith.Add", "params":"{\"A\":2, \"B\":2}"}
+// json like: {"api":"Arith.Add", "params":"[{\"A\":2, \"B\":2}]", "id":1}
 type ServiceCenterDispatchData struct{
 	Api string `json:"api"`			// like "xxx.xxx"
 	Params string `json:"params"`	// json string
+	Id int `json:id`
 }
 
 // 应答信息

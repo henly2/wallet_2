@@ -16,7 +16,7 @@ import (
 )
 
 // 服务节点回调接口
-type CallNodeApi func(api *string, data *string, result *string)
+type CallNodeApi func(req *common.ServiceCenterDispatchData, result *string)
 
 // 服务节点信息
 type ServiceNode struct{
@@ -56,7 +56,7 @@ func (ni *ServiceNode) Call(req *common.ServiceCenterDispatchData, res * string)
 	ack.Api = req.Api
 	ack.Err = common.ServiceDispatchErrOk
 	if ni.Handler != nil {
-		ni.Handler(&req.Api, &req.Params, &ack.Result)
+		ni.Handler(req, &ack.Result)
 	}else{
 		fmt.Println("Error api call (no handler)--api=" , req.Api, ",params=", req.Params)
 

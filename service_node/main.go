@@ -3,6 +3,7 @@ package main
 import (
 	"net/rpc"
 	"../base/service"
+	"../base/common"
 	//"../business_center"
 	"fmt"
 	"strconv"
@@ -60,20 +61,16 @@ func (r *apiRpcRequest) Call() {
 	<-r.done
 }
 
-// NewRPCRequest returns a new rpcRequest.
-func NewAPIRPCRequest(api *string, data *string, res *string) *apiRpcRequest {
-	rpcstring := "{\"method\":\"" + *api + "\"," + "\"params\":[" + *data + "]}"
+func callNodeApi(req *common.ServiceCenterDispatchData, result *string){
+	// dispatch your func
+	rpcstring := "{\"method\":\"" + req.Api + "\"," + "\"params\":" + req.Params + ",\"id\":"+ strconv.Itoa(req.Id) + "}"
 
 	s := strings.NewReader(rpcstring)
 	br := bufio.NewReader(s)
 
 	done := make(chan bool)
-	return &apiRpcRequest{*br, res, done}
-}
-
-func callNodeApi(api *string, data *string, result *string){
-	// dispatch your func
-	NewAPIRPCRequest(api, data, result).Call()
+	apiRequest := &apiRpcRequest{*br, result, done}
+	apiRequest.Call()
 
 	fmt.Println("callNodeApi: ", *result)
 }

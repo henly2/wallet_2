@@ -93,7 +93,8 @@ func main() {
 
 	dispatchData := common.ServiceCenterDispatchData{}
 	dispatchData.Api = "MyFunc1.Add"
-	dispatchData.Params = "{\"A\":2, \"B\":2}"
+	dispatchData.Params = "[{\"A\":2, \"B\":2}]"
+	dispatchData.Id = 1;
 	b,err := json.Marshal(dispatchData);
 	if err != nil {
 		fmt.Println("Error: ", err.Error())
