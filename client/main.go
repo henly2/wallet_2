@@ -16,7 +16,7 @@ var timeBegin,timeEnd time.Time
 
 func DoTest(params interface{}, str *string, count *int64, right *int64, times int64){
 	var res string
-	err := jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.MethodServiceCenterDispatch, params, &res)
+	err := jrpc.CallJRPCToHttpServer("127.0.0.1:8080", common.MethodServiceCenterDispatch, params, &res)
 
 	atomic.AddInt64(count, 1)
 	if  err == nil && res == *str{
@@ -31,7 +31,7 @@ func DoTest(params interface{}, str *string, count *int64, right *int64, times i
 
 func DoTest2(client *rpc.Client, params interface{}, str *string, count *int64, right *int64, times int64){
 	var res string
-	err := jrpc.CallJRPCToHttpServer2OnClient(client, common.MethodServiceCenterDispatch, params, &res)
+	err := jrpc.CallJRPCToHttpServerOnClient(client, common.MethodServiceCenterDispatch, params, &res)
 
 	atomic.AddInt64(count, 1)
 	if  err == nil && res == *str{
@@ -115,9 +115,11 @@ func main() {
 			fmt.Println("I do quit")
 			break;
 		}else if input == "d1" {
-			go jrpc.CallJRPCToHttpServer2("127.0.0.1:8080", "", common.MethodServiceCenterDispatch, params, &res)
+			jrpc.CallJRPCToHttpServer("127.0.0.1:8080", common.MethodServiceCenterDispatch, params, &res)
+			fmt.Println("result==", res)
 		}else if input == "d2" {
-			go jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServiceNodeCall, dispatchData, &res)
+			jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServiceNodeCall, dispatchData, &res)
+			fmt.Println("result==", res)
 		}else if input == "d3" {
 			for i := 0; i < times; i++ {
 				go DoTestTcp(dispatchData, &testdata, &count, &right, times)

@@ -46,14 +46,12 @@ func NewRPCRequest(r io.Reader) *rpcRequest {
 	return &rpcRequest{r, &buf, done}
 }
 
-// Start a JRPC Http Server
+// Start jrpc Http Server
 // @parameter: port string, like ":8080"
 // @return: error
 func StartJRPCHttpServer(port string) error {
-	log.Println("Start JRPC Http server...", port)
-
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		log.Println("JRPC Http server Accept a client: ", req.RemoteAddr)
+		log.Println("Http server Accept a client: ", req.RemoteAddr)
 
 		defer req.Body.Close()
 		w.Header().Set("Content-Type", "application/json")
@@ -61,10 +59,10 @@ func StartJRPCHttpServer(port string) error {
 		io.Copy(w, res)
 	})
 
-	log.Println("Start JRPC Http server successfully, listen on port: ", port)
+	log.Println("Start JRPC Http server on ", port)
 	err := http.ListenAndServe(port, nil)
 	if err != nil {
-		log.Println("Error: ", err.Error())
+		log.Println("#StartJRPCHttpServer Error: ", err.Error())
 		return err
 	}
 

@@ -5,24 +5,21 @@ import (
 	"log"
 )
 
-// Start a JRPC tcp server
+// Create a tcp server
 // @parameter: port string, like: ":8080"
-// @return: error
+// @return: net.TCPListener, error
 func CreateTcpServer(port string) (*net.TCPListener, error){
-	log.Println("Start JRPC Tcp server...", port)
-
 	addr, err := net.ResolveTCPAddr("tcp", port)
 	if err != nil {
-		log.Println("Error: ", err.Error())
-		return nil, err;
+		log.Println("#CreateTcpServer Error: ", err.Error())
+		return nil, err
 	}
 
 	listener, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		log.Println("Error: ", err.Error())
-		return nil, err;
+		log.Println("#CreateTcpServer Error: ", err.Error())
+		return nil, err
 	}
 
 	return listener, nil
-
 }

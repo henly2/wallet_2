@@ -3,88 +3,43 @@ package jrpc
 import (
 	"log"
 	"net/rpc"
-	"fmt"
-	"net"
 )
 
-// Call a JRPC to Http server2
+// Call a JRPC to Http server
 // @parameter: addr string, like "127.0.0.1:8080"
 // @parameter: method string
 // @parameter: params string
 // @parameter: res *string
 // @return: error
-func CallJRPCToHttpServer2(addr string, path string, method string, params interface{}, res *string) error {
-	log.Println("Call JRPC to Http server...", addr)
-
-	realpath := path
-	if  realpath == ""{
-		realpath = rpc.DefaultRPCPath
-	}
-	client, err := rpc.DialHTTPPath("tcp", addr, realpath)
+func CallJRPCToHttpServer(addr string, method string, params interface{}, res *string) error {
+	client, err := rpc.DialHTTPPath("tcp", addr, rpc.DefaultRPCPath)
 	if err != nil {
-		log.Println("Error: ", err.Error())
+		log.Println("#CallJRPCToHttpServer Error: ", err.Error())
 		return err
 	}
 	defer client.Close()
 
-	err = client.Call(method, params, res)
+	return CallJRPCToHttpServerOnClient(client, method, params, res)
 	if err != nil {
-		log.Println("Error: ", err.Error())
+		log.Println("#CallJRPCToHttpServer Error: ", err.Error())
 		return err
 	}
 
-	fmt.Println("Params: ", params)
-	fmt.Println("Reply: ", *res)
 	return nil
 }
 
-func CallJRPCToHttpServer2OnClient(client *rpc.Client, method string, params interface{}, res *string) error {
-	log.Println("Call JRPC to Http server...")
-
+// Call a JRPC to Http server on a client
+// @parameter: client
+// @parameter: method string
+// @parameter: params string
+// @parameter: res *string
+// @return: error
+func CallJRPCToHttpServerOnClient(client *rpc.Client, method string, params interface{}, res *string) error {
 	err := client.Call(method, params, res)
 	if err != nil {
-		log.Println("Error: ", err.Error())
+		log.Println("#CallJRPCToHttpServerOnClient Error: ", err.Error())
 		return err
 	}
 
-	fmt.Println("Params: ", params)
-	fmt.Println("Reply: ", *res)
-	return nil
-}
-
-// FIXME: xxxx
-// Call a JRPC to Http server3
-// @parameter: addr string, like "127.0.0.1:8080"
-// @parameter: method string
-// @parameter: params string
-// @parameter: res *string
-// @return: error
-func CallJRPCToHttpServer3(addr string, method string, params interface{}, res *string) error {
-	log.Println("Call JRPC to Http server...", addr)
-
-	addr2, err := net.ResolveTCPAddr("tcp", addr)
-	if err != nil {
-		log.Println("Error: ", err.Error())
-		return err
-	}
-
-	conn, err := net.DialTCP("tcp", nil, addr2)
-	if err != nil {
-		log.Println("Error: ", err.Error())
-		return err
-	}
-	defer conn.Close()
-
-	client := rpc.NewClient(conn)
-	defer client.Close()
-
-	err = client.Call(method, params, res)
-	if err != nil {
-		log.Println("Error: ", err.Error())
-		return err
-	}
-
-	fmt.Println("Params: ", params)
-	fmt.Println("Reply: ", *res)
 	return nil
 }

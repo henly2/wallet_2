@@ -15,9 +15,11 @@ import (
 	"time"
 )
 
+// 服务节点回调接口
 type CallNodeApi func(api *string, data *string, result *string)
 
-type ServiceNodeInstance struct{
+// 服务节点信息
+type ServiceNode struct{
 	// 注册的信息
 	RegisterData common.ServiceCenterRegisterData
 	// 回掉
@@ -28,7 +30,28 @@ type ServiceNodeInstance struct{
 	Wg *sync.WaitGroup
 }
 
-func (ni *ServiceNodeInstance)HandleCall(req *common.ServiceCenterDispatchData, res *string) error {
+// 生成一个服务节点
+func NewServiceNode(serviceName string) (*ServiceNode, error){
+	serviceNode := &ServiceNode{}
+
+	serviceNode.Wg = &sync.WaitGroup{}
+	serviceNode.RegisterData.Name = serviceName
+
+	return serviceNode, nil
+}
+
+// 启动服务节点
+func StartNode(ctx context.Context, serviceNode *ServiceNode) {
+	go startServiceNode(ctx, serviceNode)
+
+	go registerToServiceCenter(ctx, serviceNode)
+
+	<-ctx.Done()
+}
+
+// RPC 方法
+// 服务节点RPC--调用节点方法ServiceNodeInstance.Call
+func (ni *ServiceNode) Call(req *common.ServiceCenterDispatchData, res * string) error {
 	ack := common.ServiceCenterDispatchAckData{}
 	ack.Api = req.Api
 	ack.Err = common.ServiceDispatchErrOk
@@ -53,29 +76,13 @@ func (ni *ServiceNodeInstance)HandleCall(req *common.ServiceCenterDispatchData, 
 	return nil
 }
 
-func (ni *ServiceNodeInstance)Start(ctx context.Context) {
-	go startServiceNode(ctx, ni)
-
-	go RegisterToServiceCenter(ctx, ni)
-
-	<-ctx.Done()
-}
-
-func NewServiceNodeInstance(serviceName string) (*ServiceNodeInstance, error){
-	serviceNodeInstance := &ServiceNodeInstance{}
-
-	serviceNodeInstance.Wg = &sync.WaitGroup{}
-	serviceNodeInstance.RegisterData.Name = serviceName
-
-	return serviceNodeInstance, nil
-}
-
+// 内部方法
 ///////////////////////////////////////////////////////////////////////
-func startServiceNode(ctx context.Context, nodeInstance *ServiceNodeInstance){
-	nodeInstance.Wg.Add(1)
-	defer nodeInstance.Wg.Done()
+func startServiceNode(ctx context.Context, serviceNode *ServiceNode){
+	serviceNode.Wg.Add(1)
+	defer serviceNode.Wg.Done()
 
-	s :=strings.Split(nodeInstance.RegisterData.Addr, ":")
+	s :=strings.Split(serviceNode.RegisterData.Addr, ":")
 	if len(s) != 2{
 		fmt.Println("Error: Node addr is not ip:port format")
 		return
@@ -109,11 +116,11 @@ func startServiceNode(ctx context.Context, nodeInstance *ServiceNodeInstance){
 	fmt.Println("i am graceful quit StartServiceNode")
 }
 
-func KeepAlive(nodeInstance *ServiceNodeInstance, params *string, status int) int{
+func keepAlive(serviceNode *ServiceNode, params *string, status int) int{
 	var err error
 	var res string
 	if status == 1 {
-		err = jrpc.CallJRPCToTcpServer(nodeInstance.ServiceCenterAddr, common.MethodServiceCenterRegister, *params, &res)
+		err = jrpc.CallJRPCToTcpServer(serviceNode.ServiceCenterAddr, common.MethodServiceCenterRegister, *params, &res)
 		if err != nil {
 		}else{
 			status = 0
@@ -121,7 +128,7 @@ func KeepAlive(nodeInstance *ServiceNodeInstance, params *string, status int) in
 	}
 
 	if status == 0{
-		err = jrpc.CallJRPCToTcpServer(nodeInstance.ServiceCenterAddr, common.MethodServiceCenterPingpong, "ping", &res)
+		err = jrpc.CallJRPCToTcpServer(serviceNode.ServiceCenterAddr, common.MethodServiceCenterPingpong, "ping", &res)
 		if err == nil && res == "pong" {
 			status = 0
 		}else{
@@ -132,12 +139,12 @@ func KeepAlive(nodeInstance *ServiceNodeInstance, params *string, status int) in
 	return status
 }
 
-func RegisterToServiceCenter(ctx context.Context, nodeInstance *ServiceNodeInstance){
-	nodeInstance.Wg.Add(1)
-	defer nodeInstance.Wg.Done()
+func registerToServiceCenter(ctx context.Context, serviceNode *ServiceNode){
+	serviceNode.Wg.Add(1)
+	defer serviceNode.Wg.Done()
 
 	var params string
-	b,err := json.Marshal(nodeInstance.RegisterData);
+	b,err := json.Marshal(serviceNode.RegisterData);
 	if err != nil {
 		fmt.Println("Error: ", err.Error())
 		return;
@@ -162,7 +169,7 @@ func RegisterToServiceCenter(ctx context.Context, nodeInstance *ServiceNodeInsta
 			status = 2
 		case <-timeout:
 			fmt.Println("timeout signal")
-			status = KeepAlive(nodeInstance, &params, status)
+			status = keepAlive(serviceNode, &params, status)
 		}
 
 		if status == 2{
