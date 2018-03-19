@@ -26,7 +26,6 @@ func (rd *ServiceCenterRegisterData)RegisterApi(api interface{})  {
 	tName := reflect.Indirect(v).Type().Name()
 	for m := 0; m < t.NumMethod(); m++ {
 		method := t.Method(m)
-		//mtype := method.Type
 		mName := method.Name
 
 		rd.Apis = append(rd.Apis, tName+"."+mName)
@@ -34,7 +33,17 @@ func (rd *ServiceCenterRegisterData)RegisterApi(api interface{})  {
 }
 
 // 请求信息
+// json like: {"api":"Arith.Add", "params":"{\"A\":2, \"B\":2}"}
 type ServiceCenterDispatchData struct{
 	Api string `json:"api"`			// like "xxx.xxx"
 	Params string `json:"params"`	// json string
+}
+
+// 应答信息
+// json like: {"api":"Arith.Add", "err":0, "errmsg":"", "result":"{}"}
+type ServiceCenterDispatchAckData struct{
+	Api string `json:"api"`			// like "xxx.xxx"
+	Err int `json:err`				// like 0
+	Errmsg string `json:errmsg`		// string
+	Result string `json:"result"`	// json string
 }
