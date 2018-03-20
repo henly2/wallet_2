@@ -3,8 +3,8 @@ package function
 import "strconv"
 
 type Args struct {
-	A int
-	B int
+	A int `json:"a"`
+	B int `json:"b"`
 }
 type MyFunc1 int
 

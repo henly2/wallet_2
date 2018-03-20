@@ -75,8 +75,8 @@ func DoTestTcp2(client *rpc.Client, params interface{}, str *string, count *int6
 	}
 }
 
+// http rpc风格
 // curl -d '{"method":"ServiceCenter.Dispatch", "params":["{\"api\":\"MyFunc2.Sub\",\"params\":\"[{\\\"A\\\":\\\"hello, \\\", \\\"B\\\":\\\"world\\\"}]\",\"id\":1}"], "id": 1 }' http://localhost:8080
-
 // curl -d '{
 // "method":"ServiceCenter.Dispatch",
 // "params":["{\"api\":\"MyFunc2.Sub\",\"params\":\"[{\\\"A\\\":\\\"hello, \\\", \\\"B\\\":\\\"world\\\"}]\", \"id\":1}"],
@@ -84,13 +84,16 @@ func DoTestTcp2(client *rpc.Client, params interface{}, str *string, count *int6
 // }'
 // http://localhost:8080
 
-// curl -d '{"method":"ServiceCenter.Test", "params":[{"api":"MyFunc2.Sub","argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]", "id":1}], "id": 1}' http://localhost:8080
+// curl -d '{"method":"ServiceCenter.Dispatch", "params":[{"api":"MyFunc2.Sub","argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]", "id":1}], "id": 1}' http://localhost:8080
 // curl -d '{
 // "method":"ServiceCenter.Dispatch",
-// "params":[{"api":"MyFunc2.Sub","argv":"[{\"A\":\"hello, \", \"B\":\"world\"}], "id":1}],
+// "params":[{"api":"MyFunc2.Sub","argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]}],
 // "id": 1
 // }'
 // http://localhost:8080
+
+// http restuful风格
+// curl -d '{"argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]"}' http://localhost:8080/wallet/v1/myfunc2/sub
 func main() {
 	const times = 100;
 	var count, right int64
@@ -104,9 +107,8 @@ func main() {
 	testdata = "hello, world"
 
 	dispatchData := common.ServiceCenterDispatchData{}
-	dispatchData.Api = "MyFunc2.Sub"
-	dispatchData.Argv = "[{\"A\":\"hello, \", \"B\":\"world\"}]"
-	dispatchData.Id = 1;
+	dispatchData.Api = "MyFunc1.Add"
+	dispatchData.Argv = "[{\"a\":1, \"b\":2}]"
 	b,err := json.Marshal(dispatchData);
 	if err != nil {
 		fmt.Println("Error: ", err.Error())
@@ -132,13 +134,12 @@ func main() {
 			break;
 		}else if input == "d1" {
 			jrpc.CallJRPCToHttpServer("127.0.0.1:8080", common.MethodServiceCenterDispatch, dispatchData, &ackData)
-			fmt.Println("ack==", ackData.Ack)
+			fmt.Println("ack==", ackData)
 		}else if input == "d2" {
 			jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServiceNodeCall, dispatchData, &ackData)
-			fmt.Println("ack==", ackData.Ack)
+			fmt.Println("ack==", ackData)
 		}else if input == "d3" {
 			for i := 0; i < times; i++ {
-				dispatchData.Id = i
 				go DoTestTcp(dispatchData, &testdata, &count, &right, times)
 			}
 		} else if input == "d33" {
@@ -150,12 +151,10 @@ func main() {
 			}
 
 			for i := 0; i < times; i++ {
-				dispatchData.Id = i
 				go DoTestTcp2(client, dispatchData, &testdata, &count, &right, times)
 			}
 		}else if input == "d4" {
 			for i := 0; i < times; i++ {
-				dispatchData.Id = i
 				go DoTest(dispatchData, &testdata, &count, &right, times)
 			}
 		} else if input == "d44" {
@@ -173,7 +172,6 @@ func main() {
 				continue
 			}
 			for i := 0; i < times*times*2; i++ {
-				dispatchData.Id = i
 				go DoTest2(client, dispatchData, &testdata, &count, &right, times*times*2)
 			}
 		}

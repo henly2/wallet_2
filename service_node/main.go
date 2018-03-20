@@ -7,11 +7,9 @@ import (
 	"./function"
 	//"../business_center"
 	"fmt"
-	"strconv"
 	"context"
 	"net/rpc/jsonrpc"
 	"bufio"
-	"strings"
 )
 
 const ServiceNodeName = "service"
@@ -48,18 +46,21 @@ func (r *apiRpcRequest) Call() {
 	<-r.done
 }
 
-func callNodeApi(req *common.ServiceCenterDispatchData, result *string){
-	// dispatch your func
-	rpcstring := "{\"method\":\"" + req.Api + "\"," + "\"params\":" + req.Argv + ",\"id\":"+ strconv.Itoa(req.Id) + "}"
+func callNodeApi(req *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData){
 
+	/*
+	// dispatch your func by rpc
+	rpcstring := "{\"method\":\"" + req.Api + "\"," + "\"params\":" + req.Argv + ",\"id\":"+ strconv.Itoa(1) + "}"
 	s := strings.NewReader(rpcstring)
 	br := bufio.NewReader(s)
 
 	done := make(chan bool)
-	apiRequest := &apiRpcRequest{*br, result, done}
+	apiRequest := &apiRpcRequest{*br, &ack.Value, done}
 	apiRequest.Call()
+	*/
 
-	fmt.Println("callNodeApi: ", *result)
+	fmt.Println("callNodeApi req: ", *req)
+	fmt.Println("callNodeApi ack: ", *ack)
 }
 
 func main() {
@@ -73,8 +74,8 @@ func main() {
 
 	rpc.Register(nodeInstance)
 
-	rpc.Register(new(function.MyFunc1))
-	rpc.Register(new(function.MyFunc2))
+	//rpc.Register(new(function.MyFunc1))
+	//rpc.Register(new(function.MyFunc2))
 
 	// start routine
 	ctx, cancel := context.WithCancel(context.Background())

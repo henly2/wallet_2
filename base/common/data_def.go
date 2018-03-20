@@ -33,19 +33,17 @@ func (rd *ServiceCenterRegisterData)RegisterApi(api interface{})  {
 }
 
 // 请求信息，作为rpc请求的params数据
-// json like: {"api":"Arith.Add", "argv":"", "id":1}
+// json like: {"api":"Arith.Add", "argv":""}
 type ServiceCenterDispatchData struct{
 	Api  string `json:"api"`  // like "xxx.xxx"
 	Argv string `json:"argv"` // json string
-	Id   int    `json:"id"`     // id
 }
 
 // 应答信息，作为rpc应答的result数据
-// json like: {"api":"Arith.Add", "id":1, "err":0, "errmsg":"", "ack":""}
+// json like: {"api":"Arith.Add", "err":0, "errmsg":"", "value":""}
 type ServiceCenterDispatchAckData struct{
 	Api    string `json:"api"`    // like "xxx.xxx"
-	Id     int    `json:"id"`       // id
-	Err    int    `json:"err"`      // like 0
-	ErrMsg string `json:"errmsg"`   // string
-	Ack    string `json:"ack"` // json string
+	Err    int    `json:"err"`    // like 100
+	ErrMsg string `json:"errmsg"` // string
+	Value  string `json:"value"`  // json string
 }

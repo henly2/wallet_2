@@ -15,7 +15,7 @@ import (
 )
 
 // 服务节点回调接口
-type CallNodeApi func(req *common.ServiceCenterDispatchData, result *string)
+type CallNodeApi func(req *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData)
 
 // 服务节点信息
 type ServiceNode struct{
@@ -50,15 +50,14 @@ func StartNode(ctx context.Context, serviceNode *ServiceNode) {
 
 // RPC 方法
 // 服务节点RPC--调用节点方法ServiceNodeInstance.Call
-func (ni *ServiceNode) Call(ask *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData) error {
-	ack.Api = ask.Api
-	ack.Id = ask.Id
+func (ni *ServiceNode) Call(req *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData) error {
+	ack.Api = req.Api
 	ack.Err = common.ServiceDispatchErrOk
 	ack.ErrMsg = ""
 	if ni.Handler != nil {
-		ni.Handler(ask, &ack.Ack)
+		ni.Handler(req, ack)
 	}else{
-		fmt.Println("Error api call (no handler)--api=" , ask.Api, ",argv=", ask.Argv)
+		fmt.Println("Error api call (no handler)--api=" , req.Api, ",argv=", req.Argv)
 
 		ack.Err = common.ServiceDispatchErrNotFindHanlder
 		ack.ErrMsg = "Not find handler"

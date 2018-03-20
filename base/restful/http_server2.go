@@ -10,7 +10,7 @@ import (
 )
 
 type HttpHandler interface {
-	HandleRequest(w http.ResponseWriter, req *http.Request)
+	HandleRequest(w http.ResponseWriter, req *http.Request)error
 }
 
 type Handler struct {
@@ -25,7 +25,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	defer req.Body.Close()
 
-	h.handler.HandleRequest(w, req)
+	err := h.handler.HandleRequest(w, req)
+	if err != nil {
+		 w.WriteHeader(503)
+		 w.Write([]byte(err.Error()))
+	}
 }
 
 // Start restful Http Server

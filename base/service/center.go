@@ -13,6 +13,7 @@ import (
 	"context"
 	"net/http"
 	"io/ioutil"
+	"strings"
 )
 
 type ServiceNodeInfo struct{
@@ -43,28 +44,50 @@ type ServiceCenter struct{
 	Wg *sync.WaitGroup
 }
 
-func (mi *ServiceCenter)HandleRequest(w http.ResponseWriter, req *http.Request){
+func (mi *ServiceCenter)HandleRequest(w http.ResponseWriter, req *http.Request) error{
 	fmt.Println("a client comein...")
 	fmt.Println("path=", req.URL.Path)
 
+	api := req.URL.Path
+	api = strings.TrimLeft(api, "/")
+	api = strings.TrimRight(api, "/")
+	api = strings.TrimLeft(api, "wallet/v1")
+	api = strings.Replace(api, "/", ".", -1)
+
 	b, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		w.WriteHeader(503)
-		w.Write([]byte("Read error"))
-		return
+		fmt.Println("#HandleRequest Error: ", err.Error())
+		return err
 	}
 
 	body := string(b)
 	fmt.Println("body=", body)
 
 	// 重组rpc结构json
-	//dispatchData := common.MethodServiceCenterDispatch
+	dispatchData := common.ServiceCenterDispatchData{}
+	err = json.Unmarshal(b, &dispatchData);
+	if err != nil {
+		fmt.Println("#HandleRequest Error: ", err.Error())
+		return err;
+	}
+	dispatchData.Api = api
 
-
+	dispatchAckData := common.ServiceCenterDispatchAckData{}
+	mi.Dispatch(&dispatchData, &dispatchAckData)
 
 	w.Header().Set("Content-Type", "application/json")
+
+	b, err = json.Marshal(dispatchAckData)
+	if err != nil {
+		fmt.Println("#HandleRequest Error: ", err.Error())
+		return err;
+	}
+
+	w.Write(b)
 	//res := NewRPCRequest(req.Body).Call()
 	//io.Copy(w, res)
+
+	return nil
 }
 
 // 生成一个服务中心
@@ -149,8 +172,10 @@ func (mi *ServiceCenter) Dispatch(req *string, res * string) error {
 }
 */
 func (mi *ServiceCenter) Dispatch(ask *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData) error {
-	fmt.Println("A module dispatch in api...", ask.Api)
-	nodeInfo := mi.getServiceNodeInfoByApi(ask.Api)
+	api := strings.ToLower(ask.Api)
+
+	fmt.Println("A module dispatch in api...", api)
+	nodeInfo := mi.getServiceNodeInfoByApi(api)
 	if nodeInfo == nil {
 		fmt.Println("Error: not find api")
 		return errors.New("not find api")
@@ -221,14 +246,19 @@ func (mi *ServiceCenter)registerServiceNodeInfo(registerData *common.ServiceCent
 	mi.Rwmu.Lock()
 	defer mi.Rwmu.Unlock()
 
-	business := mi.ServiceNameMapBusiness[registerData.Name]
+	//name := registerData.Name
+	name := strings.ToLower(registerData.Name)
+
+	business := mi.ServiceNameMapBusiness[name]
 	if business == nil {
 		business = new(ServiceNodeBusiness)
-		mi.ServiceNameMapBusiness[registerData.Name] = business;
+		mi.ServiceNameMapBusiness[name] = business;
 	}
 
 	for i := 0; i < len(registerData.Apis); i++ {
-		mi.ApiMapServiceName[registerData.Apis[i]] = registerData.Name;
+		//api := registerData.Apis[i]
+		api := strings.ToLower(registerData.Apis[i])
+		mi.ApiMapServiceName[api] = name;
 	}
 
 	if business.AddrMapServiceNodeInfo == nil {
