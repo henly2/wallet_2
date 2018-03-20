@@ -16,7 +16,7 @@ var timeBegin,timeEnd time.Time
 
 func DoTest(params interface{}, str *string, count *int64, right *int64, times int64){
 	ackData := common.ServiceCenterDispatchAckData{}
-	err := jrpc.CallJRPCToHttpServer("127.0.0.1:8080", common.MethodServiceCenterDispatch, params, &ackData)
+	err := jrpc.CallJRPCToHttpServer("127.0.0.1:8080", "", common.MethodServiceCenterDispatch, params, &ackData)
 
 	atomic.AddInt64(count, 1)
 	if  err == nil && ackData.Err==100{
@@ -84,17 +84,19 @@ func DoTestTcp2(client *rpc.Client, params interface{}, str *string, count *int6
 // }'
 // http://localhost:8080
 
-// curl -d '{"method":"ServiceCenter.Dispatch", "params":[{"api":"MyFunc2.Sub","argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]", "id":1}], "id": 1}' http://localhost:8080
+// curl -d '{"method":"ServiceCenter.Dispatch", "params":[{"version":"v1", "api":"MyFunc2.Sub","argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]"}], "id": 1}' http://localhost:8080
 // curl -d '{
 // "method":"ServiceCenter.Dispatch",
-// "params":[{"api":"MyFunc2.Sub","argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]}],
+// "params":[{"version":"v1", "api":"MyFunc2.Sub","argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]}],
 // "id": 1
 // }'
 // http://localhost:8080
 
 // http restuful风格
-// curl -d '{"argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]"}' http://localhost:8080/wallet/v1/myfunc2/sub
+// curl -d '{"argv":"[{\"A\":\"hello, \", \"B\":\"world\"}]"}' http://localhost:8080/v1/myfunc2/sub
 func main() {
+
+
 	const times = 100;
 	var count, right int64
 	count = 0
@@ -107,6 +109,7 @@ func main() {
 	testdata = "hello, world"
 
 	dispatchData := common.ServiceCenterDispatchData{}
+	dispatchData.Version = "v1"
 	dispatchData.Api = "MyFunc1.Add"
 	dispatchData.Argv = "[{\"a\":1, \"b\":2}]"
 	b,err := json.Marshal(dispatchData);
@@ -133,7 +136,7 @@ func main() {
 			fmt.Println("I do quit")
 			break;
 		}else if input == "d1" {
-			jrpc.CallJRPCToHttpServer("127.0.0.1:8080", common.MethodServiceCenterDispatch, dispatchData, &ackData)
+			jrpc.CallJRPCToHttpServer("127.0.0.1:8080", "/wallet", common.MethodServiceCenterDispatch, dispatchData, &ackData)
 			fmt.Println("ack==", ackData)
 		}else if input == "d2" {
 			jrpc.CallJRPCToTcpServer("127.0.0.1:8090", common.MethodServiceNodeCall, dispatchData, &ackData)

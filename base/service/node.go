@@ -30,11 +30,12 @@ type ServiceNode struct{
 }
 
 // 生成一个服务节点
-func NewServiceNode(serviceName string) (*ServiceNode, error){
+func NewServiceNode(serviceName string, serviceVersion string) (*ServiceNode, error){
 	serviceNode := &ServiceNode{}
 
 	serviceNode.Wg = &sync.WaitGroup{}
 	serviceNode.RegisterData.Name = serviceName
+	serviceNode.RegisterData.Version = serviceVersion
 
 	return serviceNode, nil
 }
@@ -51,6 +52,7 @@ func StartNode(ctx context.Context, serviceNode *ServiceNode) {
 // RPC 方法
 // 服务节点RPC--调用节点方法ServiceNodeInstance.Call
 func (ni *ServiceNode) Call(req *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData) error {
+	ack.Version = req.Version
 	ack.Api = req.Api
 	ack.Err = common.ServiceDispatchErrOk
 	ack.ErrMsg = ""

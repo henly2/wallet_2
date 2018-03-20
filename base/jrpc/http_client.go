@@ -11,8 +11,12 @@ import (
 // @parameter: params string
 // @parameter: res *string
 // @return: error
-func CallJRPCToHttpServer(addr string, method string, params interface{}, res interface{}) error {
-	client, err := rpc.DialHTTPPath("tcp", addr, rpc.DefaultRPCPath)
+func CallJRPCToHttpServer(addr string, path string, method string, params interface{}, res interface{}) error {
+	realPath := path
+	if realPath == "" {
+		realPath = rpc.DefaultRPCPath
+	}
+	client, err := rpc.DialHTTPPath("tcp", addr, realPath)
 	if err != nil {
 		log.Println("#CallJRPCToHttpServer Error: ", err.Error())
 		return err

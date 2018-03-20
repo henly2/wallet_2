@@ -15,8 +15,11 @@ func main() {
 	centerInstance.HttpPort = ":8080"
 	centerInstance.TcpPort = ":8081"
 
-	rpc.Register(centerInstance)
-	rpc.HandleHTTP();
+	//centerInstance.RpcServer = rpc.DefaultServer
+	centerInstance.RpcServer = rpc.NewServer()
+	centerInstance.RpcServer.Register(centerInstance)
+
+	//rpc.HandleHTTP();
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go service.StartCenter(ctx, centerInstance)
@@ -33,5 +36,7 @@ func main() {
 			break;
 		}
 	}
+
+	centerInstance.Wg.Wait()
 }
 

@@ -13,6 +13,7 @@ import (
 )
 
 const ServiceNodeName = "service"
+const ServiceNodeVersion = "v1"
 
 // rpcRequest represents a RPC request.
 // rpcRequest implements the io.ReadWriteCloser interface.
@@ -64,7 +65,7 @@ func callNodeApi(req *common.ServiceCenterDispatchData, ack *common.ServiceCente
 }
 
 func main() {
-	nodeInstance, _:= service.NewServiceNode(ServiceNodeName)
+	nodeInstance, _:= service.NewServiceNode(ServiceNodeName, ServiceNodeVersion)
 	nodeInstance.RegisterData.Addr = "127.0.0.1:8090"
 	nodeInstance.RegisterData.RegisterApi(new(function.MyFunc1))
 	nodeInstance.RegisterData.RegisterApi(new(function.MyFunc2))

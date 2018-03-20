@@ -5,7 +5,6 @@ import (
 	"net/rpc"
 	"../common"
 	"../jrpc"
-	"../restful"
 	"log"
 	"encoding/json"
 	"fmt"
@@ -14,6 +13,10 @@ import (
 	"net/http"
 	"io/ioutil"
 	"strings"
+	"net/rpc/jsonrpc"
+	"io"
+	"bytes"
+	"net"
 )
 
 type ServiceNodeInfo struct{
@@ -31,63 +34,22 @@ type ServiceCenter struct{
 	// 名称
 	Name string
 
-	// 端口
+	// rpc服务
+	RpcServer *rpc.Server
+
+	// http
 	HttpPort string
+
+	// tcp
 	TcpPort string
 
 	// 节点信息
 	Rwmu sync.RWMutex
-	ApiMapServiceName map[string]string
-	ServiceNameMapBusiness map[string]*ServiceNodeBusiness
+	ApiMapServiceName map[string]string // api+version mapto name+version
+	ServiceNameMapBusiness map[string]*ServiceNodeBusiness // name+version mapto allservicenode
 
 	// 等待
 	Wg *sync.WaitGroup
-}
-
-func (mi *ServiceCenter)HandleRequest(w http.ResponseWriter, req *http.Request) error{
-	fmt.Println("a client comein...")
-	fmt.Println("path=", req.URL.Path)
-
-	api := req.URL.Path
-	api = strings.TrimLeft(api, "/")
-	api = strings.TrimRight(api, "/")
-	api = strings.TrimLeft(api, "wallet/v1")
-	api = strings.Replace(api, "/", ".", -1)
-
-	b, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		fmt.Println("#HandleRequest Error: ", err.Error())
-		return err
-	}
-
-	body := string(b)
-	fmt.Println("body=", body)
-
-	// 重组rpc结构json
-	dispatchData := common.ServiceCenterDispatchData{}
-	err = json.Unmarshal(b, &dispatchData);
-	if err != nil {
-		fmt.Println("#HandleRequest Error: ", err.Error())
-		return err;
-	}
-	dispatchData.Api = api
-
-	dispatchAckData := common.ServiceCenterDispatchAckData{}
-	mi.Dispatch(&dispatchData, &dispatchAckData)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	b, err = json.Marshal(dispatchAckData)
-	if err != nil {
-		fmt.Println("#HandleRequest Error: ", err.Error())
-		return err;
-	}
-
-	w.Write(b)
-	//res := NewRPCRequest(req.Body).Call()
-	//io.Copy(w, res)
-
-	return nil
 }
 
 // 生成一个服务中心
@@ -104,8 +66,11 @@ func NewServiceCenter(rootName string) (*ServiceCenter, error){
 
 // 启动服务中心
 func StartCenter(ctx context.Context, serviceCenter *ServiceCenter) {
-	go jrpc.StartJRPCHttpServer(serviceCenter.HttpPort)
-	go restful.StartRestfulHttpServer(ctx, serviceCenter.Wg, serviceCenter, ":8070")
+	serviceCenter.RpcServer.HandleHTTP("/wallet", "/wallet_debug")
+	http.Handle("/walletrpc", http.HandlerFunc(serviceCenter.walletRpc))
+	http.Handle("/walletrest/", http.HandlerFunc(serviceCenter.walletRest))
+
+	go startHttpServiceCenter(ctx, serviceCenter)
 	go startServiceCenter(ctx, serviceCenter)
 
 	<-ctx.Done()
@@ -172,7 +137,7 @@ func (mi *ServiceCenter) Dispatch(req *string, res * string) error {
 }
 */
 func (mi *ServiceCenter) Dispatch(ask *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData) error {
-	api := strings.ToLower(ask.Api)
+	api := ask.GetVersionApi()
 
 	fmt.Println("A module dispatch in api...", api)
 	nodeInfo := mi.getServiceNodeInfoByApi(api)
@@ -215,6 +180,26 @@ func (mi *ServiceCenter) Pingpong(req *string, res * string) error {
 }
 
 // 内部方法
+func startHttpServiceCenter(ctx context.Context, serviceCenter *ServiceCenter){
+	serviceCenter.Wg.Add(1)
+	defer serviceCenter.Wg.Done()
+
+	log.Println("Start Http server on ", serviceCenter.HttpPort)
+	listener, err := net.Listen("tcp", serviceCenter.HttpPort)
+	if err != nil {
+		fmt.Println("#startHttpServiceCenter Error:", err.Error())
+		return
+	}
+
+	srv := http.Server{Handler:nil}
+	go srv.Serve(listener)
+
+	<-ctx.Done()
+	listener.Close()
+
+	fmt.Println("i am quit startHttpServiceCenter")
+}
+
 func startServiceCenter(ctx context.Context, serviceCenter *ServiceCenter){
 	serviceCenter.Wg.Add(1)
 	defer serviceCenter.Wg.Done()
@@ -226,7 +211,7 @@ func startServiceCenter(ctx context.Context, serviceCenter *ServiceCenter){
 		return
 	}
 
-	go func(){
+	go func(serviceCenter *ServiceCenter){
 		for{
 			conn, err := l.Accept();
 			if err != nil {
@@ -235,30 +220,34 @@ func startServiceCenter(ctx context.Context, serviceCenter *ServiceCenter){
 			}
 
 			log.Println("JRPC Tcp server Accept a client: ", conn.RemoteAddr())
-			go rpc.ServeConn(conn)
+			//go rpc.ServeConn(conn)
+			go serviceCenter.RpcServer.ServeConn(conn)
 		}
-	}()
+	}(serviceCenter)
 
 	<- ctx.Done()
+	fmt.Println("i am quit startServiceCenter")
 }
 
 func (mi *ServiceCenter)registerServiceNodeInfo(registerData *common.ServiceCenterRegisterData) error{
 	mi.Rwmu.Lock()
 	defer mi.Rwmu.Unlock()
 
-	//name := registerData.Name
-	name := strings.ToLower(registerData.Name)
+	//version := registerData.Version
+	version := strings.ToLower(registerData.Version)
 
-	business := mi.ServiceNameMapBusiness[name]
+	versionName := registerData.GetVersionName()
+
+	business := mi.ServiceNameMapBusiness[versionName]
 	if business == nil {
 		business = new(ServiceNodeBusiness)
-		mi.ServiceNameMapBusiness[name] = business;
+		mi.ServiceNameMapBusiness[versionName] = business;
 	}
 
 	for i := 0; i < len(registerData.Apis); i++ {
 		//api := registerData.Apis[i]
-		api := strings.ToLower(registerData.Apis[i])
-		mi.ApiMapServiceName[api] = name;
+		api := version + "." + strings.ToLower(registerData.Apis[i])
+		mi.ApiMapServiceName[api] = versionName;
 	}
 
 	if business.AddrMapServiceNodeInfo == nil {
@@ -273,16 +262,16 @@ func (mi *ServiceCenter)registerServiceNodeInfo(registerData *common.ServiceCent
 	return nil
 }
 
-func (mi *ServiceCenter)getServiceNodeInfoByApi(api string) *ServiceNodeInfo{
+func (mi *ServiceCenter)getServiceNodeInfoByApi(versionApi string) *ServiceNodeInfo{
 	mi.Rwmu.RLock()
 	defer mi.Rwmu.RUnlock()
 
-	name := mi.ApiMapServiceName[api]
-	if name == ""{
+	versionName := mi.ApiMapServiceName[versionApi]
+	if versionName == ""{
 		return nil
 	}
 
-	business := mi.ServiceNameMapBusiness[name]
+	business := mi.ServiceNameMapBusiness[versionName]
 	if business == nil || business.AddrMapServiceNodeInfo == nil{
 		return nil
 	}
@@ -342,4 +331,106 @@ func (mi *ServiceCenter)closeClient(nodeInfo *ServiceNodeInfo) error{
 	//mi.RemoveServiceNodeInfo(nodeInfo)
 
 	return nil
+}
+
+// http 处理
+// rpcRequest represents a RPC request.
+// rpcRequest implements the io.ReadWriteCloser interface.
+type rpcRequest struct {
+	r    io.Reader     // holds the JSON formated RPC request
+	rw   io.ReadWriter // holds the JSON formated RPC response
+	done chan bool     // signals then end of the RPC request
+}
+
+// Read implements the io.ReadWriteCloser Read method.
+func (r *rpcRequest) Read(p []byte) (n int, err error) {
+	return r.r.Read(p)
+}
+
+// Write implements the io.ReadWriteCloser Write method.
+func (r *rpcRequest) Write(p []byte) (n int, err error) {
+	return r.rw.Write(p)
+}
+
+// Close implements the io.ReadWriteCloser Close method.
+func (r *rpcRequest) Close() error {
+	r.done <- true
+	return nil
+}
+
+// NewRPCRequest returns a new rpcRequest.
+func newRPCRequest(r io.Reader) *rpcRequest {
+	var buf bytes.Buffer
+	done := make(chan bool)
+	return &rpcRequest{r, &buf, done}
+}
+func (mi *ServiceCenter) walletRpc(w http.ResponseWriter, req *http.Request) {
+	log.Println("Http server Accept a rpc client: ", req.RemoteAddr)
+
+	defer req.Body.Close()
+	w.Header().Set("Content-Type", "application/json")
+	rpcReq := newRPCRequest(req.Body)
+
+	// go and wait
+	go mi.RpcServer.ServeCodec(jsonrpc.NewServerCodec(rpcReq))
+	<-rpcReq.done
+
+	io.Copy(w, rpcReq.rw)
+}
+func (mi *ServiceCenter) walletRest(w http.ResponseWriter, req *http.Request) {
+	log.Println("Http server Accept a rest client: ", req.RemoteAddr)
+
+	fmt.Println("path=", req.URL.Path)
+
+	versionApi := req.URL.Path
+	versionApi = strings.Replace(versionApi, "walletrest", "", -1)
+
+	b, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		fmt.Println("#HandleRequest Error: ", err.Error())
+		return
+	}
+
+	body := string(b)
+	fmt.Println("body=", body)
+
+	// 重组rpc结构json
+	dispatchData := common.ServiceCenterDispatchData{}
+	err = json.Unmarshal(b, &dispatchData);
+	if err != nil {
+		fmt.Println("#HandleRequest Error: ", err.Error())
+		return;
+	}
+
+	var version = true
+	paths := strings.Split(versionApi, "/")
+	for i := 0; i < len(paths); i++ {
+		if paths[i] == "" {
+			continue;
+		}
+		if version {
+			dispatchData.Version = paths[i]
+			version = false
+		}else{
+			dispatchData.Api += paths[i] + "."
+		}
+	}
+	dispatchData.Api = strings.TrimRight(dispatchData.Api, ".")
+
+	dispatchAckData := common.ServiceCenterDispatchAckData{}
+	mi.Dispatch(&dispatchData, &dispatchAckData)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	b, err = json.Marshal(dispatchAckData)
+	if err != nil {
+		fmt.Println("#HandleRequest Error: ", err.Error())
+		return;
+	}
+
+	w.Write(b)
+	//res := NewRPCRequest(req.Body).Call()
+	//io.Copy(w, res)
+
+	return
 }
