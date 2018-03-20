@@ -5,11 +5,14 @@ import (
 	"net/rpc"
 	"../common"
 	"../jrpc"
+	"../restful"
 	"log"
 	"encoding/json"
 	"fmt"
 	"errors"
 	"context"
+	"net/http"
+	"io/ioutil"
 )
 
 type ServiceNodeInfo struct{
@@ -40,6 +43,30 @@ type ServiceCenter struct{
 	Wg *sync.WaitGroup
 }
 
+func (mi *ServiceCenter)HandleRequest(w http.ResponseWriter, req *http.Request){
+	fmt.Println("a client comein...")
+	fmt.Println("path=", req.URL.Path)
+
+	b, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		w.WriteHeader(503)
+		w.Write([]byte("Read error"))
+		return
+	}
+
+	body := string(b)
+	fmt.Println("body=", body)
+
+	// 重组rpc结构json
+	//dispatchData := common.MethodServiceCenterDispatch
+
+
+
+	w.Header().Set("Content-Type", "application/json")
+	//res := NewRPCRequest(req.Body).Call()
+	//io.Copy(w, res)
+}
+
 // 生成一个服务中心
 func NewServiceCenter(rootName string) (*ServiceCenter, error){
 	serviceCenter := &ServiceCenter{}
@@ -55,6 +82,7 @@ func NewServiceCenter(rootName string) (*ServiceCenter, error){
 // 启动服务中心
 func StartCenter(ctx context.Context, serviceCenter *ServiceCenter) {
 	go jrpc.StartJRPCHttpServer(serviceCenter.HttpPort)
+	go restful.StartRestfulHttpServer(ctx, serviceCenter.Wg, serviceCenter, ":8070")
 	go startServiceCenter(ctx, serviceCenter)
 
 	<-ctx.Done()
@@ -120,7 +148,6 @@ func (mi *ServiceCenter) Dispatch(req *string, res * string) error {
 	return err
 }
 */
-// 测试。。。
 func (mi *ServiceCenter) Dispatch(ask *common.ServiceCenterDispatchData, ack *common.ServiceCenterDispatchAckData) error {
 	fmt.Println("A module dispatch in api...", ask.Api)
 	nodeInfo := mi.getServiceNodeInfoByApi(ask.Api)

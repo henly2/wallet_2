@@ -172,9 +172,9 @@ func main() {
 				log.Println("Error: ", err.Error())
 				continue
 			}
-			for i := 0; i < times; i++ {
+			for i := 0; i < times*times*2; i++ {
 				dispatchData.Id = i
-				go DoTest2(client, dispatchData, &testdata, &count, &right, times)
+				go DoTest2(client, dispatchData, &testdata, &count, &right, times*times*2)
 			}
 		}
 	}
